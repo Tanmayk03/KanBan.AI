@@ -1,0 +1,22 @@
+{
+  "name": "kanban-ai-worker",
+  "version": "1.0.0",
+  "description": "AI Worker for Kanban board using Gemini",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "ai",
+    "gemini",
+    "worker"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@google/generative-ai": "^0.2.0",
+    "@supabase/supabase-js": "^2.81.1",
+    "dotenv": "^16.6.1"
+  }
+}
