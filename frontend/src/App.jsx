@@ -6,6 +6,8 @@ import KanbanBoard from './components/KanbanBoard';
 import CreateTaskModal from './components/CreateTaskModal';
 import HistoryModal from './components/HistoryModal';
 import AllHistoryModal from './components/AllHistoryModal';
+import Footer from './components/Footer';
+
 
 export default function KanbanAI() {
   const [tasks, setTasks] = useState([]);
@@ -172,6 +174,7 @@ export default function KanbanAI() {
         onClose={() => setAllHistoryModalOpen(false)}
         tasks={tasks}
       />
+      <Footer />
     </div>
   );
 }

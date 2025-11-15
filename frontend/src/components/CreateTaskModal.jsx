@@ -81,7 +81,7 @@ export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
           <div className="flex gap-3 pt-2">
             <button
               onClick={handleSubmit}
-              className="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 font-medium shadow-lg transition-all"
+              className="flex-1 bg-gradient-to-l from-gray-600 to-black  text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 font-medium shadow-lg transition-all"
             >
               Create Task
             </button>
