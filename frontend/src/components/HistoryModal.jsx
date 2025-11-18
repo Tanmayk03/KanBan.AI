@@ -19,7 +19,9 @@ export default function HistoryModal({ isOpen, onClose, task }) {
         .from('task_logs')
         .select('*')
         .eq('task_id', task.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+.limit(3);
+
       
       if (error) throw error;
       setLogs(data || []);

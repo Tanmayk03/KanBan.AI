@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, Sparkles, History } from 'lucide-react';
+import { Plus, History } from 'lucide-react';
 
 export default function Header({ onCreateTask, onViewAllHistory }) {
   return (
