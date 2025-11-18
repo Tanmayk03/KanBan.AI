@@ -1,286 +1,192 @@
 import React, { useState } from 'react';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import { Loader2, Clock, CheckCircle, Trash2, History, FileText, X } from 'lucide-react';
-import { TASK_TYPES } from '../constants/taskTypes';
+import { Trash2, Clock, History, Calendar, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 
-export default function TaskCard({ task, isDragging = false, onDelete, onViewHistory }) {
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
+export default function TaskCard({ task, onDelete, onViewHistory }) {
+  const [isOutputExpanded, setIsOutputExpanded] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging: isSortableDragging } = useSortable({
-    id: task.id,
-    data: { type: 'task', task }
-  });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging || isSortableDragging ? 0.5 : 1,
+  const workflowBadges = {
+    'summarization': { color: 'bg-blue-100 text-blue-800', label: 'Summarization' },
+    'translation': { color: 'bg-green-100 text-green-800', label: 'Translation' },
+    'sentiment-analysis': { color: 'bg-yellow-100 text-yellow-800', label: 'Sentiment' },
+    'code-generation': { color: 'bg-pink-100 text-pink-800', label: 'Code Gen' },
+    'code-explanation': { color: 'bg-indigo-100 text-indigo-800', label: 'Code Explain' },
+    'bug-fix': { color: 'bg-red-100 text-red-800', label: 'Bug Fix' },
+    'document-analysis': { color: 'bg-purple-100 text-purple-800', label: 'Doc Analysis' },
+    'content-polishing': { color: 'bg-cyan-100 text-cyan-800', label: 'Polish' },
+    'creative-writing': { color: 'bg-orange-100 text-orange-800', label: 'Creative' },
+    'research': { color: 'bg-teal-100 text-teal-800', label: 'Research' }
   };
 
-  const getStatusStyle = (status) => {
-    switch (status) {
-      case 'todo': return 'bg-white border-blue-300';
-      case 'in_progress': return 'bg-white border-amber-300';
-      case 'done': return 'bg-white border-emerald-300';
-      case 'failed': return 'bg-white border-red-300';
-      default: return 'bg-white border-gray-300';
+  const taskTypeColors = {
+    'summarize': 'bg-blue-100 text-blue-800',
+    'translate': 'bg-green-100 text-green-800',
+    'sentiment': 'bg-yellow-100 text-yellow-800',
+    'code': 'bg-pink-100 text-pink-800',
+    'ocr': 'bg-purple-100 text-purple-800',
+    'auto': 'bg-gray-100 text-gray-800'
+  };
+
+  const workflowBadge = workflowBadges[task.detected_workflow];
+  const taskTypeColor = taskTypeColors[task.task_type] || 'bg-gray-100 text-gray-800';
+
+  const handleOutputClick = (e) => {
+    e.stopPropagation(); // Prevent drag from triggering
+    setIsOutputExpanded(!isOutputExpanded);
+  };
+
+  const handleButtonClick = (e, callback) => {
+    e.stopPropagation(); // Prevent drag from triggering
+    callback();
+  };
+
+  const handleCopyOutput = async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(task.output_data.result);
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000); // Reset after 2 seconds
+    } catch (err) {
+      console.error('Failed to copy:', err);
+      alert('Failed to copy to clipboard');
     }
   };
-
-  const getStatusIndicator = (status) => {
-    switch (status) {
-      case 'todo': return 'bg-blue-500';
-      case 'in_progress': return 'bg-amber-500';
-      case 'done': return 'bg-emerald-500';
-      case 'failed': return 'bg-red-500';
-      default: return 'bg-gray-500';
-    }
-  };
-
-  const taskType = TASK_TYPES.find(t => t.value === task.task_type);
 
   return (
-    <>
-      <div
-        ref={setNodeRef}
-        style={style}
-        className={`group relative rounded-lg border-2 shadow-sm hover:shadow-md transition-all ${getStatusStyle(task.status)}`}
-      >
-        {/* Status Indicator Bar */}
-        <div className={`h-1 rounded-t-lg ${getStatusIndicator(task.status)}`}></div>
-        
-        <div {...attributes} {...listeners} className="p-4 cursor-move">
-          <div className="flex items-start justify-between gap-3 mb-3">
-            <h3 className="font-semibold text-gray-900 text-sm leading-snug">{task.title}</h3>
-            <div className="flex gap-1 flex-shrink-0">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onViewHistory(task);
-                }}
-                className="p-1 opacity-0 group-hover:opacity-100 hover:bg-gray-100 rounded transition-all"
-                title="History"
-              >
-                <History className="w-3.5 h-3.5 text-gray-600" />
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete(task.id);
-                }}
-                className="p-1 opacity-0 group-hover:opacity-100 hover:bg-red-50 rounded transition-all"
-                title="Delete"
-              >
-                <Trash2 className="w-3.5 h-3.5 text-red-600" />
-              </button>
-            </div>
-          </div>
+    <div className="bg-white p-4 rounded-xl shadow-md hover:shadow-xl transition-all border border-gray-100">
+      {/* Header with badges */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <h3 className="font-bold text-gray-800 text-lg mb-2 line-clamp-2">
+            {task.title}
+          </h3>
           
-          <div className="flex items-center justify-between text-xs text-gray-500">
-            <div className="flex items-center gap-1">
-              {taskType && <taskType.icon className="w-3 h-3" />}
-              <span>{taskType?.label}</span>
-            </div>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setShowDetailsModal(true);
-              }}
-              className="text-blue-600 hover:text-blue-700 font-medium"
-            >
-              View →
-            </button>
+          {/* Badges Row */}
+          <div className="flex flex-wrap gap-2 mb-2">
+            {/* Task Type Badge */}
+            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${taskTypeColor}`}>
+              {task.task_type === 'auto' ? 'Auto' : task.task_type}
+            </span>
+
+            {/* Detected Workflow Badge (if available) */}
+            {workflowBadge && (
+              <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${workflowBadge.color}`}>
+                {workflowBadge.label}
+              </span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Clean Details Modal */}
-      {showDetailsModal && (
-        <TaskDetailsModal 
-          task={task} 
-          taskType={taskType}
-          onClose={() => setShowDetailsModal(false)}
-          onViewHistory={() => {
-            setShowDetailsModal(false);
-            onViewHistory(task);
-          }}
-        />
+      {/* Description */}
+      {task.description && (
+        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+          {task.description}
+        </p>
       )}
-    </>
-  );
-}
 
-// Task Details Modal Component
-function TaskDetailsModal({ task, taskType, onClose, onViewHistory }) {
-  const [activeTab, setActiveTab] = useState('input');
+      {/* Input Preview */}
+      {task.input_data?.text && (
+        <div className="bg-gray-50 p-3 rounded-lg mb-3">
+          <p className="text-xs font-semibold text-gray-500 mb-1">Input:</p>
+          <p className="text-sm text-gray-700 line-clamp-2">
+            {task.input_data.text}
+          </p>
+        </div>
+      )}
 
-  const inputText = task.input_data?.text || '';
-  const outputText = task.output_data?.result || '';
-
-  return (
-    <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[60] p-4"
-      onClick={onClose}
-    >
-      <div 
-        className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1">
-              <h2 className="text-xl font-bold text-gray-900">{task.title}</h2>
-              <div className="flex items-center gap-3 mt-2 text-sm text-gray-600">
-                {taskType && (
-                  <div className="flex items-center gap-1.5">
-                    <taskType.icon className="w-4 h-4" />
-                    <span>{taskType.label}</span>
-                  </div>
+      {/* Output/Result - Clickable and Expandable */}
+      {task.output_data?.result && (
+        <div 
+          className="bg-gradient-to-r from-green-50 to-emerald-50 p-3 rounded-lg mb-3 border border-green-100 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs font-semibold text-green-700">Result:</p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={handleCopyOutput}
+                className="p-1 hover:bg-green-100 rounded transition-colors group"
+                title="Copy output"
+              >
+                {isCopied ? (
+                  <Check className="w-4 h-4 text-green-600" />
+                ) : (
+                  <Copy className="w-4 h-4 text-green-600 group-hover:text-green-700" />
                 )}
-                <span>•</span>
-                <span>{new Date(task.created_at).toLocaleDateString()}</span>
-              </div>
+              </button>
+              <button
+                onClick={handleOutputClick}
+                className="p-1 hover:bg-green-100 rounded transition-colors"
+              >
+                {isOutputExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-green-600" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-green-600" />
+                )}
+              </button>
             </div>
-            <button
-              onClick={onClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors flex-shrink-0"
-            >
-              <X className="w-5 h-5 text-gray-500" />
-            </button>
           </div>
+          <p className={`text-sm text-gray-700 whitespace-pre-wrap ${isOutputExpanded ? '' : 'line-clamp-3'}`}>
+            {task.output_data.result}
+          </p>
+          {!isOutputExpanded && task.output_data.result.length > 150 && (
+            <p className="text-xs text-green-600 mt-2 font-medium">
+              Click expand to view full output
+            </p>
+          )}
         </div>
+      )}
 
-        {/* Tabs */}
-        <div className="flex border-b border-gray-200 px-6">
-          <button
-            onClick={() => setActiveTab('input')}
-            className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'input'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Input
-          </button>
-          <button
-            onClick={() => setActiveTab('output')}
-            className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'output'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Output
-          </button>
-          <button
-            onClick={() => setActiveTab('info')}
-            className={`px-4 py-3 font-medium text-sm border-b-2 transition-colors ${
-              activeTab === 'info'
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-600 hover:text-gray-900'
-            }`}
-          >
-            Info
-          </button>
+      {/* Error */}
+      {task.output_data?.error && (
+        <div className="bg-red-50 p-3 rounded-lg mb-3 border border-red-200">
+          <p className="text-xs font-semibold text-red-600 mb-1">Error:</p>
+          <p className="text-sm text-red-700 line-clamp-2">
+            {task.output_data.error}
+          </p>
         </div>
+      )}
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6">
-          {activeTab === 'input' && (
-            <div>
-              {inputText ? (
-                <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                  <pre className="text-sm text-gray-800 whitespace-pre-wrap break-words font-sans leading-relaxed">
-                    {inputText}
-                  </pre>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-400">
-                  <FileText className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>No input data</p>
-                </div>
-              )}
-            </div>
+      {/* Footer Meta */}
+      <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          {/* Processing Time */}
+          {task.output_data?.processing_time_ms && (
+            <span className="flex items-center gap-1" title="Processing Time">
+              <Clock className="w-3 h-3" />
+              {task.output_data.processing_time_ms}ms
+            </span>
           )}
 
-          {activeTab === 'output' && (
-            <div>
-              {outputText ? (
-                <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200">
-                  <pre className="text-sm text-gray-800 whitespace-pre-wrap break-words font-sans leading-relaxed">
-                    {outputText}
-                  </pre>
-                </div>
-              ) : (
-                <div className="text-center py-12 text-gray-400">
-                  <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>No output yet</p>
-                </div>
-              )}
-            </div>
-          )}
+          {/* Created Date */}
+          <span className="flex items-center gap-1" title="Created">
+            <Calendar className="w-3 h-3" />
+            {new Date(task.created_at).toLocaleDateString()}
+          </span>
 
-          {activeTab === 'info' && (
-            <div className="space-y-4">
-              {task.description && (
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Description</label>
-                  <p className="mt-1 text-sm text-gray-800">{task.description}</p>
-                </div>
-              )}
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
-                  <p className="mt-1 text-sm font-medium text-gray-800 capitalize">
-                    {task.status.replace('_', ' ')}
-                  </p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Task Type</label>
-                  <p className="mt-1 text-sm text-gray-800">{taskType?.label}</p>
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Created</label>
-                  <p className="mt-1 text-sm text-gray-800">
-                    {new Date(task.created_at).toLocaleString()}
-                  </p>
-                </div>
-                {task.updated_at && (
-                  <div>
-                    <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Updated</label>
-                    <p className="mt-1 text-sm text-gray-800">
-                      {new Date(task.updated_at).toLocaleString()}
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Task ID</label>
-                <p className="mt-1 text-xs font-mono text-gray-600 bg-gray-50 px-2 py-1 rounded inline-block">
-                  {task.id}
-                </p>
-              </div>
-            </div>
+          {/* Model Info */}
+          {task.output_data?.model && (
+            <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">
+              {task.output_data.model}
+            </span>
           )}
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex gap-3">
+        {/* Action Buttons */}
+        <div className="flex items-center gap-2">
           <button
-            onClick={onViewHistory}
-            className="flex-1 bg-blue-600 text-white px-4 py-2.5 rounded-lg hover:bg-blue-700 transition-colors font-medium text-sm"
+            onClick={(e) => handleButtonClick(e, () => onViewHistory(task))}
+            className="p-1.5 hover:bg-blue-50 rounded-lg transition-colors group"
+            title="View History"
           >
-            View History
+            <History className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
           </button>
           <button
-            onClick={onClose}
-            className="px-9 py-2.5 bg-gray-300 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors font-medium text-sm"
+            onClick={(e) => handleButtonClick(e, () => onDelete(task.id))}
+            className="p-1.5 hover:bg-red-50 rounded-lg transition-colors group"
+            title="Delete Task"
           >
-            Close
+            <Trash2 className="w-4 h-4 text-gray-400 group-hover:text-red-600" />
           </button>
         </div>
       </div>

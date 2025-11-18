@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { supabase } from './config/supabase';
 import Header from './components/Header';
 import KanbanBoard from './components/KanbanBoard';
 import CreateTaskModal from './components/CreateTaskModal';
 import HistoryModal from './components/HistoryModal';
 import AllHistoryModal from './components/AllHistoryModal';
+import TaskCard from './components/TaskCard';
 import Footer from './components/Footer';
-
 
 export default function KanbanAI() {
   const [tasks, setTasks] = useState([]);
@@ -16,6 +17,15 @@ export default function KanbanAI() {
   const [historyModal, setHistoryModal] = useState({ isOpen: false, task: null });
   const [allHistoryModalOpen, setAllHistoryModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+
+  // Configure drag sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px movement required before drag starts
+      },
+    })
+  );
 
   useEffect(() => {
     fetchTasks();
@@ -54,18 +64,28 @@ export default function KanbanAI() {
 
   const createTask = async (formData) => {
     try {
+      // If task_type is 'auto', let the worker detect it
+      const taskType = formData.task_type === 'auto' ? 'auto' : formData.task_type;
+      
       const { error } = await supabase
         .from('tasks')
         .insert({
           title: formData.title,
           description: formData.description,
-          task_type: formData.task_type,
-          status: 'todo',
+          task_type: taskType,
+          status: 'todo', // Changed from 'in_progress' to 'todo'
           input_data: { text: formData.input_text }
         });
 
       if (error) throw error;
       setIsModalOpen(false);
+
+      // Show success message
+      if (taskType === 'auto') {
+        alert('✅ Task created! Move to "In Progress" for AI processing...');
+      } else {
+        alert('✅ Task created successfully!');
+      }
     } catch (error) {
       console.error('Error creating task:', error);
       alert('Failed to create task: ' + error.message);
@@ -103,6 +123,7 @@ export default function KanbanAI() {
     const task = tasks.find(t => t.id === taskId);
 
     if (task && task.status !== newStatus) {
+      // Optimistic update
       setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t));
 
       try {
@@ -113,6 +134,7 @@ export default function KanbanAI() {
 
         if (error) throw error;
 
+        // Log the status change
         await supabase
           .from('task_logs')
           .insert({
@@ -123,6 +145,7 @@ export default function KanbanAI() {
 
       } catch (error) {
         console.error('Error updating task:', error);
+        // Revert on error
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: task.status } : t));
         alert('Failed to update task status');
       }
@@ -147,14 +170,25 @@ export default function KanbanAI() {
           onViewAllHistory={() => setAllHistoryModalOpen(true)}
         />
         
-        <KanbanBoard
-          tasks={tasks}
-          onDelete={deleteTask}
-          onViewHistory={(task) => setHistoryModal({ isOpen: true, task })}
-          onDragStart={handleDragStart}
+        <DndContext 
+          sensors={sensors}
+          onDragStart={handleDragStart} 
           onDragEnd={handleDragEnd}
-          activeTask={activeTask}
-        />
+        >
+          <KanbanBoard
+            tasks={tasks}
+            onDelete={deleteTask}
+            onViewHistory={(task) => setHistoryModal({ isOpen: true, task })}
+          />
+          
+          <DragOverlay>
+            {activeTask ? (
+              <div className="opacity-80 rotate-3 scale-105">
+                <TaskCard task={activeTask} />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
       </div>
 
       <CreateTaskModal

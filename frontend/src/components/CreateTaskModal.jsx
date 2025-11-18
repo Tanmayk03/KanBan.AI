@@ -1,97 +1,176 @@
 import React, { useState } from 'react';
 import { X } from 'lucide-react';
-import { TASK_TYPES } from '../constants/taskTypes';
 
 export default function CreateTaskModal({ isOpen, onClose, onSubmit }) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    task_type: 'summarize',
+    task_type: 'auto',
     input_text: ''
   });
 
-  const handleSubmit = () => {
-    if (!formData.title || !formData.input_text) {
-      alert('Please fill in title and input text');
-      return;
+  const taskTypes = [
+    { 
+      value: 'auto', 
+      label: 'Auto Detect', 
+      description: 'Let AI choose the best workflow' 
+    },
+    { 
+      value: 'summarize', 
+      label: 'Summarize', 
+      description: 'Condense long text' 
+    },
+    { 
+      value: 'translate', 
+      label: 'Translate', 
+      description: 'Convert to another language' 
+    },
+    { 
+      value: 'sentiment', 
+      label: 'Sentiment', 
+      description: 'Analyze emotions' 
+    },
+    { 
+      value: 'code', 
+      label: 'Code', 
+      description: 'Generate or fix code' 
+    },
+    { 
+      value: 'ocr', 
+      label: 'Document', 
+      description: 'Extract information' 
     }
+  ];
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
     onSubmit(formData);
-    setFormData({ title: '', description: '', task_type: 'summarize', input_text: '' });
+    setFormData({
+      title: '',
+      description: '',
+      task_type: 'auto',
+      input_text: ''
+    });
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-2xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-gray-800">Create New Task</h2>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-lg transition-colors">
-            <X className="w-6 h-6 text-gray-500" />
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-gray-800 to-black text-white p-6 flex items-center justify-between hover:from-black-700 hover:to-red-900 text">
+          <h2 className="text-2xl font-bold">Create New Task</h2>
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-white hover:bg-opacity-10 rounded-full transition-colors"
+          >
+            <X className="w-6 h-6" />
           </button>
         </div>
-        
-        <div className="space-y-4">
+
+        {/* Form - Scrollable */}
+        <form onSubmit={handleSubmit} className="p-6 space-y-5 overflow-y-auto flex-1">
+          {/* Title */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">Task Title</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Task Title <span className="text-red-500">*</span>
+            </label>
             <input
               type="text"
               value={formData.title}
-              onChange={(e) => setFormData({...formData, title: e.target.value})}
-              className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none transition-colors"
-              placeholder="e.g., Summarize quarterly report"
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              placeholder="e.g., Fix authentication bug in login system"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-800 focus:ring-2 focus:ring-gray-200 transition-all outline-none"
+              required
             />
           </div>
 
+          {/* Description */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">Description</label>
-            <textarea
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Description
+            </label>
+            <input
+              type="text"
               value={formData.description}
-              onChange={(e) => setFormData({...formData, description: e.target.value})}
-              className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none transition-colors"
-              rows={2}
-              placeholder="Optional details"
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              placeholder="Brief description of the task"
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-800 focus:ring-2 focus:ring-gray-200 transition-all outline-none"
             />
           </div>
 
+          {/* Task Type Selection */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">Task Type</label>
-            <select
-              value={formData.task_type}
-              onChange={(e) => setFormData({...formData, task_type: e.target.value})}
-              className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none transition-colors"
-            >
-              {TASK_TYPES.map(type => (
-                <option key={type.value} value={type.value}>{type.label}</option>
+            <label className="block text-sm font-semibold text-gray-700 mb-3">
+              Task Type <span className="text-red-500">*</span>
+            </label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+              {taskTypes.map((type) => (
+                <button
+                  key={type.value}
+                  type="button"
+                  onClick={() => setFormData({ ...formData, task_type: type.value })}
+                  className={`
+                    p-3 rounded-xl font-medium transition-all text-left border-2
+                    ${formData.task_type === type.value
+                      ? 'bg-gradient-to-br from-gray-800 to-black text-white border-gray-900 shadow-lg'
+                      : 'bg-white text-gray-700 border-gray-200 hover:border-gray-400 hover:shadow-md hover:bg-gradient-to-br hover:from-black hover:to-red-900 hover:text-white'
+                    }
+                  `}
+                >
+                  <div className="font-bold text-sm mb-0.5">{type.label}</div>
+                  <div className={`text-xs ${formData.task_type === type.value ? 'text-gray-300' : 'text-gray-500'}`}>
+                    {type.description}
+                  </div>
+                </button>
               ))}
-            </select>
+            </div>
+            
+            {formData.task_type === 'auto' && (
+              <div className="mt-3 p-3 bg-gray-50 border-2 border-gray-200 rounded-lg">
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">AI Auto-Detection:</span> The system will automatically analyze your task and choose the best workflow type
+                </p>
+              </div>
+            )}
           </div>
 
+          {/* Input Text */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">Input Text</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Input Text <span className="text-red-500">*</span>
+            </label>
             <textarea
               value={formData.input_text}
-              onChange={(e) => setFormData({...formData, input_text: e.target.value})}
-              className="w-full border-2 border-gray-200 rounded-lg px-4 py-2.5 focus:border-blue-500 focus:outline-none transition-colors"
-              rows={4}
-              placeholder="Enter text to process..."
+              onChange={(e) => setFormData({ ...formData, input_text: e.target.value })}
+              placeholder="Enter the text or details for AI to process..."
+              rows={5}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-800 focus:ring-2 focus:ring-gray-200 transition-all outline-none resize-none"
+              required
             />
+            <p className="text-xs text-gray-500 mt-1">
+              Provide detailed information for better AI processing
+            </p>
           </div>
+        </form>
 
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={handleSubmit}
-              className="flex-1 bg-gradient-to-l from-gray-600 to-black  text-white px-6 py-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 font-medium shadow-lg transition-all"
-            >
-              Create Task
-            </button>
-            <button
-              onClick={onClose}
-              className="px-6 py-3 border-2 border-gray-200 rounded-lg hover:bg-gray-50 font-medium transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
+        {/* Footer Buttons - Fixed at bottom */}
+        <div className="p-6 bg-gray-50 border-t border-gray-200 flex gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-white transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            onClick={handleSubmit}
+            className="flex-1 px-6 py-3 bg-gradient-to-r from-gray-800 to-black text-white rounded-lg font-semibold hover:from-black hover:to-red-900 transition-all shadow-lg hover:shadow-xl"
+          >
+            Create Task
+          </button>
         </div>
       </div>
     </div>
