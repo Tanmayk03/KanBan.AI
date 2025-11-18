@@ -1,11 +1,10 @@
-import { DndContext } from '@dnd-kit/core';
 import { useDroppable } from '@dnd-kit/core';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import TaskCard from './TaskCard';
 
 // Droppable Column Component
-function DroppableColumn({ id, title, icon, count, color, children }) {
+function DroppableColumn({ id, title, count, color, children }) {
   const { setNodeRef, isOver } = useDroppable({ id });
 
   return (
@@ -16,7 +15,6 @@ function DroppableColumn({ id, title, icon, count, color, children }) {
       }`}
     >
       <h2 className={`text-lg font-bold mb-4 flex items-center gap-2 ${color}`}>
-        <span className="text-2xl">{icon}</span>
         {title} ({count})
       </h2>
       <div className="space-y-4 max-h-[calc(100vh-300px)] overflow-y-auto">
@@ -54,7 +52,7 @@ function DraggableTask({ task, onDelete, onViewHistory }) {
   );
 }
 
-export default function KanbanBoard({ tasks, onDelete, onViewHistory, onUpdateTaskStatus }) {
+export default function KanbanBoard({ tasks, onDelete, onViewHistory }) {
   
   const groupTasksByStatus = () => {
     return {
@@ -67,117 +65,96 @@ export default function KanbanBoard({ tasks, onDelete, onViewHistory, onUpdateTa
 
   const grouped = groupTasksByStatus();
 
-  // Handle drag end - this is what was missing!
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
-
-    if (!over) return;
-
-    const taskId = active.id;
-    const newStatus = over.id;
-
-    // Find the task being dragged
-    const task = tasks.find(t => t.id === taskId);
-    
-    // Only update if status actually changed
-    if (task && task.status !== newStatus) {
-      // Call the parent component's update function
-      onUpdateTaskStatus(taskId, newStatus);
-    }
-  };
-
   return (
-    <DndContext onDragEnd={handleDragEnd}>
-      <div className="max-w-7xl mx-auto mt-8">
-        {/* Main Grid: To Do, In Progress, Done */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          {/* To Do Column */}
-          <DroppableColumn
-            id="todo"
-            title="To Do"
-            count={grouped.todo.length}
-            color="text-gray-700"
-          >
-            {grouped.todo.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">No tasks yet</p>
-            ) : (
-              grouped.todo.map(task => (
-                <DraggableTask 
-                  key={task.id} 
-                  task={task} 
-                  onDelete={onDelete}
-                  onViewHistory={onViewHistory}
-                />
-              ))
-            )}
-          </DroppableColumn>
+    <div className="max-w-7xl mx-auto mt-8">
+      {/* Main Grid: To Do, In Progress, Done */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        {/* To Do Column */}
+        <DroppableColumn
+          id="todo"
+          title="To Do"
+          count={grouped.todo.length}
+          color="text-gray-700"
+        >
+          {grouped.todo.length === 0 ? (
+            <p className="text-center text-gray-400 py-8">No tasks yet</p>
+          ) : (
+            grouped.todo.map(task => (
+              <DraggableTask 
+                key={task.id} 
+                task={task} 
+                onDelete={onDelete}
+                onViewHistory={onViewHistory}
+              />
+            ))
+          )}
+        </DroppableColumn>
 
-          {/* In Progress Column */}
-          <DroppableColumn
-            id="in_progress"
-            title="In Progress"
-            count={grouped.in_progress.length}
-            color="text-yellow-700"
-          >
-            {grouped.in_progress.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">No tasks processing</p>
-            ) : (
-              grouped.in_progress.map(task => (
-                <DraggableTask 
-                  key={task.id} 
-                  task={task} 
-                  onDelete={onDelete}
-                  onViewHistory={onViewHistory}
-                />
-              ))
-            )}
-          </DroppableColumn>
+        {/* In Progress Column */}
+        <DroppableColumn
+          id="in_progress"
+          title="In Progress"
+          count={grouped.in_progress.length}
+          color="text-yellow-700"
+        >
+          {grouped.in_progress.length === 0 ? (
+            <p className="text-center text-gray-400 py-8">No tasks processing</p>
+          ) : (
+            grouped.in_progress.map(task => (
+              <DraggableTask 
+                key={task.id} 
+                task={task} 
+                onDelete={onDelete}
+                onViewHistory={onViewHistory}
+              />
+            ))
+          )}
+        </DroppableColumn>
 
-          {/* Done Column */}
+        {/* Done Column */}
+        <DroppableColumn
+          id="done"
+          title="Done"
+          count={grouped.done.length}
+          color="text-green-700"
+        >
+          {grouped.done.length === 0 ? (
+            <p className="text-center text-gray-400 py-8">No completed tasks</p>
+          ) : (
+            grouped.done.map(task => (
+              <DraggableTask 
+                key={task.id} 
+                task={task} 
+                onDelete={onDelete}
+                onViewHistory={onViewHistory}
+              />
+            ))
+          )}
+        </DroppableColumn>
+      </div>
+
+      {/* Failed Section - Smaller, Collapsible */}
+      {grouped.failed.length > 0 && (
+        <div className="max-w-7xl mx-auto">
           <DroppableColumn
-            id="done"
-            title="Done"
-            count={grouped.done.length}
-            color="text-green-700"
+            id="failed"
+            title="Failed Tasks"
+            count={grouped.failed.length}
+            color="text-red-700"
           >
-            {grouped.done.length === 0 ? (
-              <p className="text-center text-gray-400 py-8">No completed tasks</p>
-            ) : (
-              grouped.done.map(task => (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {grouped.failed.map(task => (
                 <DraggableTask 
                   key={task.id} 
                   task={task} 
                   onDelete={onDelete}
                   onViewHistory={onViewHistory}
                 />
-              ))
-            )}
+              ))}
+            </div>
           </DroppableColumn>
         </div>
-
-        {/* Failed Section - Smaller, Collapsible */}
-        {grouped.failed.length > 0 && (
-          <div className="max-w-7xl mx-auto">
-            <DroppableColumn
-              id="failed"
-              title="Failed Tasks"
-              count={grouped.failed.length}
-              color="text-red-700"
-            >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {grouped.failed.map(task => (
-                  <DraggableTask 
-                    key={task.id} 
-                    task={task} 
-                    onDelete={onDelete}
-                    onViewHistory={onViewHistory}
-                  />
-                ))}
-              </div>
-            </DroppableColumn>
-          </div>
-        )}
-      </div>
-    </DndContext>
+      )}
+    </div>
   );
 }
