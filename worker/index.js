@@ -11,35 +11,36 @@ const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 console.log('🔑 API Key loaded:', GEMINI_API_KEY ? '✅ Yes' : '❌ Missing');
 
 // ============================================
-// NEW: Automatic Task Classification
+// Automatic Task Classification
 // ============================================
 async function classifyTask(taskDescription) {
-  const classificationPrompt = `You are an AI Workflow Engine for a Kanban automation system.
-Your job is to read a user's task and decide the MOST appropriate next action.
-You must classify the task into exactly ONE of the following steps:
+  const classificationPrompt = `Classify this task into EXACTLY ONE category. Reply with ONLY the category name, nothing else.
 
-- summarization: Tasks asking to summarize long text, articles, documents, or content
-- translation: Tasks asking to translate text from one language to another
-- sentiment-analysis: Tasks asking to analyze emotions, opinions, or sentiment in text
-- code-generation: Tasks asking to write new code, create programs, or build applications
-- code-explanation: Tasks asking to explain how code works or what it does
-- bug-fix: Tasks asking to fix errors, debug code, or resolve issues in existing code
-- document-analysis: Tasks asking to analyze, extract information from, or understand documents
-- content-polishing: Tasks asking to improve, edit, proofread, or refine existing content
-- creative-writing: Tasks asking to write stories, poems, articles, or creative content
-- research: Tasks asking to find information, investigate topics, or gather data
-- unknown: Use this only if you truly cannot decide
+Categories:
+- code-generation (if user wants to CREATE/WRITE/BUILD code or program)
+- code-explanation (if user wants to UNDERSTAND/EXPLAIN existing code)
+- bug-fix (if user wants to FIX/DEBUG code errors)
+- translation (if user wants to TRANSLATE text to another language)
+- sentiment-analysis (if user wants to ANALYZE emotions/opinions/sentiment)
+- summarization (if user wants to SUMMARIZE/CONDENSE text)
+- document-analysis (if user wants to EXTRACT/ANALYZE document information)
+- content-polishing (if user wants to IMPROVE/EDIT/PROOFREAD text)
+- creative-writing (if user wants to WRITE stories/poems/creative content)
+- research (if user wants to FIND/INVESTIGATE information)
 
-CRITICAL RULES:
-1. Respond with ONLY the category name (e.g., "code-generation")
-2. Do NOT include explanations, reasoning, or additional text
-3. Choose the SINGLE most appropriate category
-4. Be decisive - avoid "unknown" unless absolutely necessary
+Examples:
+"write a python function to sort array" → code-generation
+"explain this javascript code: function add(a,b)" → code-explanation
+"my code has an error: TypeError undefined" → bug-fix
+"translate hello world to french" → translation
+"analyze sentiment of: I love this product" → sentiment-analysis
 
-Task to classify: ${taskDescription}`;
+Task: "${taskDescription}"
+
+Reply with ONLY the category name:`;
 
   try {
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-exp:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     
     const response = await fetch(url, {
       method: 'POST',
@@ -53,7 +54,7 @@ Task to classify: ${taskDescription}`;
           }]
         }],
         generationConfig: {
-          temperature: 0,  // Deterministic classification
+          temperature: 0.1,  // Low temperature for consistent classification
           maxOutputTokens: 50
         }
       })
@@ -63,70 +64,117 @@ Task to classify: ${taskDescription}`;
     
     if (!response.ok) {
       console.error('❌ Classification API Error:', data);
-      return 'unknown';
+      return 'summarization';
     }
     
     if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
-      const classification = data.candidates[0].content.parts[0].text.trim().toLowerCase();
+      const rawClassification = data.candidates[0].content.parts[0].text.trim().toLowerCase();
+      console.log(`🔍 Raw classification response: "${rawClassification}"`);
+      
+      // Clean up the response - remove any extra text
+      let classification = rawClassification
+        .replace(/^(the category is|category:|answer:)/i, '')
+        .trim();
       
       // Validate classification
       const validSteps = [
         'summarization', 'translation', 'sentiment-analysis',
         'code-generation', 'code-explanation', 'bug-fix',
         'document-analysis', 'content-polishing', 'creative-writing',
-        'research', 'unknown'
+        'research'
       ];
       
-      if (validSteps.includes(classification)) {
-        return classification;
+      // Find exact match or partial match
+      for (const step of validSteps) {
+        if (classification === step || classification.includes(step)) {
+          console.log(`✅ Matched classification: "${step}"`);
+          return step;
+        }
       }
-      return 'unknown';
+      
+      console.log(`⚠️  No match found for: "${rawClassification}", defaulting to summarization`);
+      return 'summarization';
     }
     
-    return 'unknown';
+    return 'summarization';
     
   } catch (error) {
     console.error('❌ Classification error:', error.message);
-    return 'unknown';
+    return 'summarization';
   }
 }
 
 // ============================================
-// Map auto-detected categories to task types
+// Enhanced workflow-specific prompts
 // ============================================
-function mapClassificationToTaskType(classification) {
-  const mapping = {
-    'summarization': 'summarize',
-    'translation': 'translate',
-    'sentiment-analysis': 'sentiment',
-    'code-generation': 'code',
-    'code-explanation': 'code',
-    'bug-fix': 'code',
-    'document-analysis': 'ocr',
-    'content-polishing': 'summarize',
-    'creative-writing': 'code',
-    'research': 'summarize',
-    'unknown': 'summarize'
-  };
-  
-  return mapping[classification] || 'summarize';
-}
+async function processWithGemini(detectedWorkflow, inputText) {
+  const workflowPrompts = {
+    'summarization': `Summarize the following text in 2-3 concise sentences:\n\n${inputText}`,
+    
+    'translation': `Translate the following text to Spanish (or detect the target language from context). Provide ONLY the translation:\n\n${inputText}`,
+    
+    'sentiment-analysis': `Analyze the sentiment of this text. Provide:
+1) Overall Sentiment: (Positive/Negative/Neutral/Mixed)
+2) Confidence Score: (percentage)
+3) Key Emotions Detected: (list main emotions)
+4) Brief Explanation: (2-3 sentences)
 
-// AI Processing using Gemini 2.5 Flash (Latest Model!)
-async function processWithGemini(taskType, inputText) {
-  const prompts = {
-    summarize: `Summarize the following text in 2-3 concise sentences:\n\n${inputText}`,
-    translate: `Translate the following text to Spanish. Only provide the translation:\n\n${inputText}`,
-    sentiment: `Analyze the sentiment of this text. Provide: 1) Sentiment (Positive/Negative/Neutral), 2) Brief explanation.\n\nText: ${inputText}`,
-    ocr: `Extract and organize any structured information from this text:\n\n${inputText}`,
-    code: `Generate clean, working code based on this request:\n\n${inputText}`
+Text to analyze: "${inputText}"`,
+    
+    'code-generation': `Generate clean, working, well-commented code based on this request. Include:
+1) The complete code
+2) Brief explanation of how it works
+3) Example usage if applicable
+
+Request: ${inputText}`,
+    
+    'code-explanation': `Explain the following code in detail. Include:
+1) What the code does (high-level overview)
+2) Step-by-step breakdown of key parts
+3) Any important concepts or patterns used
+
+Code: ${inputText}`,
+    
+    'bug-fix': `Analyze the following code/error and provide:
+1) Identified Issue: What's wrong
+2) Root Cause: Why it's happening
+3) Fixed Code: Corrected version
+4) Prevention Tips: How to avoid this in future
+
+Code/Error: ${inputText}`,
+    
+    'document-analysis': `Analyze this document and extract:
+1) Key Information: Main points and data
+2) Structure: How it's organized
+3) Summary: Brief overview
+4) Insights: Important findings
+
+Document: ${inputText}`,
+    
+    'content-polishing': `Improve and refine the following content. Provide:
+1) Polished Version: Enhanced, error-free text
+2) Changes Made: Brief list of improvements
+3) Suggestions: Additional recommendations
+
+Original Content: ${inputText}`,
+    
+    'creative-writing': `Create creative content based on this request. Be imaginative, engaging, and original:
+
+${inputText}`,
+    
+    'research': `Research and provide comprehensive information on this topic. Include:
+1) Overview: Brief introduction
+2) Key Facts: Important information
+3) Details: In-depth explanation
+4) Sources: Where this information comes from
+
+Topic: ${inputText}`
   };
 
-  const prompt = prompts[taskType] || prompts.summarize;
+  const prompt = workflowPrompts[detectedWorkflow] || workflowPrompts['summarization'];
   
   try {
-    // Using Gemini 2.5 Flash - Latest model!
-    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`;
     
     const response = await fetch(url, {
       method: 'POST',
@@ -138,7 +186,11 @@ async function processWithGemini(taskType, inputText) {
           parts: [{
             text: prompt
           }]
-        }]
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 2048
+        }
       })
     });
 
@@ -165,35 +217,52 @@ async function processTask(task) {
   const startTime = Date.now();
   
   try {
-    console.log(`\n[${task.id.substring(0, 8)}] 🔄 Processing ${task.task_type}: "${task.title}"`);
+    console.log(`\n[${task.id.substring(0, 8)}] 🔄 Processing: "${task.title}"`);
     
-    // NEW: Auto-detect workflow type if not specified or if task_type is 'auto'
-    let actualTaskType = task.task_type;
     let detectedWorkflow = null;
     
-    if (!task.task_type || task.task_type === 'auto') {
+    // Auto-detect workflow type if task_type is 'auto'
+    if (task.task_type === 'auto') {
       console.log(`[${task.id.substring(0, 8)}] 🤖 Auto-detecting workflow type...`);
       
-      const taskDescription = task.title + (task.input_data?.text ? ': ' + task.input_data.text : '');
-      detectedWorkflow = await classifyTask(taskDescription);
-      actualTaskType = mapClassificationToTaskType(detectedWorkflow);
+      const taskDescription = task.title + (task.description ? ' - ' + task.description : '') + 
+                            (task.input_data?.text ? ': ' + task.input_data.text : '');
       
-      console.log(`[${task.id.substring(0, 8)}] 🎯 Detected: ${detectedWorkflow} → ${actualTaskType}`);
+      console.log(`[${task.id.substring(0, 8)}] 📝 Task description to classify: "${taskDescription.substring(0, 100)}..."`);
+      
+      detectedWorkflow = await classifyTask(taskDescription);
+      
+      console.log(`[${task.id.substring(0, 8)}] 🎯 Final detected workflow: ${detectedWorkflow}`);
       
       // Update task with detected workflow
       await supabase.from('tasks').update({
-        task_type: actualTaskType,
         detected_workflow: detectedWorkflow
       }).eq('id', task.id);
+      
+      await supabase.from('task_logs').insert({
+        task_id: task.id,
+        event: 'workflow_detected',
+        message: `AI detected workflow: ${detectedWorkflow}`
+      });
+    } else {
+      // Map existing task_type to workflow
+      const taskTypeToWorkflow = {
+        'summarize': 'summarization',
+        'translate': 'translation',
+        'sentiment': 'sentiment-analysis',
+        'code': 'code-generation',
+        'ocr': 'document-analysis'
+      };
+      detectedWorkflow = taskTypeToWorkflow[task.task_type] || 'summarization';
     }
     
     await supabase.from('task_logs').insert({
       task_id: task.id,
       event: 'started',
-      message: `Started processing ${actualTaskType} task with Gemini 2.5 Flash${detectedWorkflow ? ` (detected: ${detectedWorkflow})` : ''}`
+      message: `Started processing with workflow: ${detectedWorkflow}`
     });
 
-    const result = await processWithGemini(actualTaskType, task.input_data.text);
+    const result = await processWithGemini(detectedWorkflow, task.input_data.text);
     const processingTime = Date.now() - startTime;
 
     await supabase.from('tasks').update({
@@ -202,7 +271,7 @@ async function processTask(task) {
         result: result,
         model: 'gemini-2.5-flash',
         processing_time_ms: processingTime,
-        detected_workflow: detectedWorkflow
+        workflow_used: detectedWorkflow
       },
       completed_at: new Date().toISOString()
     }).eq('id', task.id);
@@ -210,15 +279,15 @@ async function processTask(task) {
     await supabase.from('task_logs').insert({
       task_id: task.id,
       event: 'completed',
-      message: `✅ Completed in ${processingTime}ms`,
+      message: `Completed in ${processingTime}ms using ${detectedWorkflow}`,
       metadata: { 
         processing_time_ms: processingTime,
-        detected_workflow: detectedWorkflow
+        workflow: detectedWorkflow
       }
     });
 
     console.log(`[${task.id.substring(0, 8)}] ✅ Done in ${processingTime}ms`);
-    console.log(`📝 Result: ${result.substring(0, 100)}...\n`);
+    console.log(`📝 Preview: ${result.substring(0, 100)}...\n`);
     
   } catch (error) {
     console.error(`[${task.id.substring(0, 8)}] ❌ Error:`, error.message);
@@ -231,14 +300,14 @@ async function processTask(task) {
     await supabase.from('task_logs').insert({
       task_id: task.id,
       event: 'failed',
-      message: `❌ Failed: ${error.message}`
+      message: `Failed: ${error.message}`
     });
   }
 }
 
 // Main worker loop
 async function workerLoop() {
-  console.log('🤖 Gemini 2.5 Flash AI Worker Started!');
+  console.log('🤖 Gemini AI Worker Started!');
   console.log('🧠 Auto Task Classification: ENABLED');
   console.log('📡 Polling for tasks every 3 seconds...\n');
   
